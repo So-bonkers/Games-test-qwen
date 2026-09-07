@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Three.js Minimal Test</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #000; }
+    canvas { display: block; width: 100vw; height: 100vh; }
+    #info {
+      position: absolute; top: 10px; left: 10px; color: #0f0; font-family: monospace;
+      background: rgba(0,0,0,0.7); padding: 10px; border-radius: 6px; z-index: 10;
+    }
+    #error {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      color: #f44; font-family: monospace; background: #200; padding: 30px;
+      border: 2px solid #f00; border-radius: 10px; text-align: center; display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="info">Loading Three.js...</div>
+  <div id="error"></div>
+  <canvas id="c"></canvas>
+
+  <!-- Load Three.js directly from CDN — no Vite, no bundling -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.170.0/build/three.module.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    const info = document.getElementById('info');
+    const errDiv = document.getElementById('error');
+
+    function showErr(msg) {
+      errDiv.style.display = 'block';
+      errDiv.textContent = msg;
+      info.textContent = 'FAILED';
+    }
+
+    try {
+      // Import Three.js from CDN
+      const THREE = await import('three');
+      info.textContent = 'Three.js loaded! Creating scene...';
+      console.log('Three.js version:', THREE.REVISION);
+
+      // Create renderer
+      const canvas = document.getElementById('c');
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      info.textContent += ' Renderer created!';
+
+      // Create scene
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x87ceeb); // Sky blue
+      console.log('Scene background:', scene.background.getHex().toString(16));
+
+      // Create camera
+      const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(0, 3, 5);
+      camera.lookAt(0, 1, 0);
+
+      // Add a red cube (the classic Three.js test)
+      const geometry = new THREE.BoxGeometry(1, 1, 1);
+      const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+      const cube = new THREE.Mesh(geometry, material);
+      cube.position.set(0, 1, 0);
+      scene.add(cube);
+
+      // Add a green ground plane
+      const groundGeo = new THREE.PlaneGeometry(10, 10);
+      const groundMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
+      const ground = new THREE.Mesh(groundGeo, groundMat);
+      ground.rotation.x = -Math.PI / 2;
+      scene.add(ground);
+
+      // Simple animation loop
+      let frame = 0;
+      function animate() {
+        requestAnimationFrame(animate);
+        cube.rotation.x += 0.01;
+        cube.rotation.y += 0.015;
+        renderer.render(scene, camera);
+        frame++;
+        if (frame % 60 === 0) {
+          info.textContent = `✅ Three.js WORKING! Frame: ${frame}`;
+        }
+      }
+
+      animate();
+      console.log('Animation loop started');
+
+    } catch (err) {
+      console.error('Three.js test failed:', err);
+      showErr(`ERROR:\n\n${err.message}\n\nIf you see this instead of a spinning red cube, WebGL is not working in your browser.`);
+    }
+  </script>
+</body>
+</html>

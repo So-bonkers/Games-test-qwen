@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DESPAWN_DISTANCE, MAX_SPAWN_GAP, MIN_SPAWN_GAP, SPAWN_DISTANCE } from '@/core/GameConfig';
+import { BASE_SPEED, DESPAWN_DISTANCE, MAX_SPAWN_GAP, MIN_SPAWN_GAP, SPAWN_DISTANCE } from '@/core/GameConfig';
 import { ObjectPool } from '@/systems/ObjectPool';
 import { pickPattern } from '@/spawner/PatternTable';
 import type { ObstacleSpec } from '@/contracts/obstacle';
@@ -47,7 +47,10 @@ export class Spawner {
     }
 
     while (this.nextSpawnZ < worldDistance + SPAWN_DISTANCE) {
-      const specs = pickPattern(rng, this.nextId, this.nextSpawnZ);
+      const result = pickPattern(rng);
+      const lead = SPAWN_DISTANCE * (1 + result.maxRelativeSpeed / BASE_SPEED);
+      const z = Math.max(this.nextSpawnZ, worldDistance + lead);
+      const specs = result.build(this.nextId, z);
       this.nextId += 4;
       for (const spec of specs) {
         const mesh = this.pool.acquire();
@@ -55,7 +58,7 @@ export class Spawner {
         mesh.scale.set(spec.bounds.hx * 2, spec.bounds.hy * 2, spec.bounds.hz * 2);
         this.active.push({ spec, mesh });
       }
-      this.nextSpawnZ += MIN_SPAWN_GAP + randRange(rng, 0, MAX_SPAWN_GAP - MIN_SPAWN_GAP);
+      this.nextSpawnZ = z + MIN_SPAWN_GAP + randRange(rng, 0, MAX_SPAWN_GAP - MIN_SPAWN_GAP);
     }
   }
 

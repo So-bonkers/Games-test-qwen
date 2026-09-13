@@ -27,8 +27,8 @@ export const SPEED_INTERVAL = 30;
 export const SPAWN_DISTANCE = 120;
 export const DESPAWN_DISTANCE = 20;
 export const CHUNK_SIZE = 50;
-export const MIN_SPAWN_GAP = 12;
-export const MAX_SPAWN_GAP = 22;
+export const MIN_SPAWN_GAP = 18;
+export const MAX_SPAWN_GAP = 28;
 export const TUNNEL_MIN_GAP = 70;
 export const TUNNEL_MAX_GAP = 120;
 

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {
   CAMERA_POSITION,
   CAMERA_TARGET,
+  CHARACTER_FEET_OFFSET,
   FOG_COLOR,
   FOG_FAR,
   FOG_NEAR,
@@ -11,11 +12,14 @@ import {
   SKY_COLOR,
 } from '@/core/GameConfig';
 import { createSkyGradientTexture } from '@/core/SkyGradient';
+import type { CharacterRig } from '@/core/CharacterRig';
+import type { AnimState } from '@/contracts/character';
 
 export class SceneRoot {
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
   readonly placeholder: THREE.Mesh;
+  private characterRig: CharacterRig | null = null;
 
   constructor() {
     this.scene.background = createSkyGradientTexture(SKY_COLOR);
@@ -61,9 +65,21 @@ export class SceneRoot {
     this.scene.add(this.placeholder);
   }
 
-  update(x: number, feetY: number, scaleY: number): void {
+  update(x: number, feetY: number, scaleY: number, animState: AnimState, dt: number): void {
     this.placeholder.position.x = x;
     this.placeholder.position.y = feetY + (PLAYER_HEIGHT * scaleY) / 2;
     this.placeholder.scale.y = scaleY;
+
+    if (this.characterRig) {
+      this.characterRig.setState(animState);
+      this.characterRig.update(dt);
+      this.characterRig.group.position.set(x, feetY + CHARACTER_FEET_OFFSET, 0);
+    }
+  }
+
+  attachCharacter(rig: CharacterRig): void {
+    this.characterRig = rig;
+    this.scene.add(rig.group);
+    this.placeholder.visible = false;
   }
 }

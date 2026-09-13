@@ -7,6 +7,7 @@ import { Sim } from '@/core/Sim';
 import { M5_FIXTURE_SETS } from '@/fixtures/m5Fixtures';
 import { InputQueue } from '@/input/InputQueue';
 import { attachKeyboard } from '@/input/KeyboardInput';
+import { CharacterRig } from '@/core/CharacterRig';
 
 const app = document.getElementById('app');
 if (!app) throw new Error('#app not found in index.html');
@@ -18,6 +19,13 @@ const fixtureName = new URLSearchParams(location.search).get('fixture') ?? 'defa
 const useProcedural = fixtureName === 'procedural';
 const obstacles = useProcedural ? [] : (M5_FIXTURE_SETS[fixtureName] ?? M5_FIXTURE_SETS.default);
 const sim = new Sim(sceneRoot, input, obstacles, useProcedural);
+
+CharacterRig.load()
+  .then((rig) => {
+    sceneRoot.attachCharacter(rig);
+    debugHook.characterLoaded = true;
+  })
+  .catch((err) => console.error('CharacterRig load failed', err));
 
 attachKeyboard(input);
 

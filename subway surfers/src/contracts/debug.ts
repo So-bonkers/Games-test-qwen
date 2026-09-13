@@ -1,6 +1,7 @@
 import type { Elevation } from '@/contracts/elevation';
 import type { ObstacleType } from '@/contracts/obstacle';
 import type { PowerUpType } from '@/contracts/pickup';
+import type { AnimState } from '@/contracts/character';
 
 export interface LumaStats {
   mean: number;
@@ -27,6 +28,7 @@ export interface DebugObstacle {
 export interface DebugHook {
   version: 1;
   state: 'menu' | 'playing' | 'gameover';
+  characterLoaded: boolean;
   stats: {
     frame: number;
     simTick: number;
@@ -43,6 +45,7 @@ export interface DebugHook {
     elevation: Elevation;
     velocityY: number;
     grounded: boolean;
+    animState: AnimState;
   };
   world: { speed: number; distance: number; score: number; coins: number };
   pool: { obstaclesActive: number; obstaclesFree: number; chunksActive: number };

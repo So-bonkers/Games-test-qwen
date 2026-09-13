@@ -4,6 +4,7 @@ import {
   HOVERBOARD_INVULNERABLE_TICKS,
   JETPACK_HOVER_HEIGHT,
   JUMP_VELOCITY,
+  LAND_HOLD_TICKS,
   LANE_POSITIONS,
   LERP_SPEED,
   PLAYER_SLIDE_SCALE,
@@ -15,6 +16,7 @@ import { pushDebugEvent } from '@/core/DebugHook';
 import type { Elevation, LandableSurface } from '@/contracts/elevation';
 import type { InputAction } from '@/input/InputQueue';
 import type { PowerUpType } from '@/contracts/pickup';
+import type { AnimState } from '@/contracts/character';
 
 export class PlayerController {
   lane: 0 | 1 | 2 = 1;
@@ -28,6 +30,8 @@ export class PlayerController {
   jetpackTimer = 0;
   hoverboardCharges = 0;
   invulnerableTicks = 0;
+  animState: AnimState = 'RUN';
+  private landHoldTicks = 0;
   private sliding = false;
   private slideTimer = 0;
   private onSurface: LandableSurface | null = null;
@@ -82,6 +86,9 @@ export class PlayerController {
   }
 
   tick(dt: number, tickCount: number, worldZ: number, surfaces: readonly LandableSurface[]): void {
+    if (this.landHoldTicks > 0) this.landHoldTicks--;
+    const wasAirborne = this.elevation === 'AIRBORNE';
+
     const targetX = LANE_POSITIONS[this.lane];
     this.x += (targetX - this.x) * Math.min(1, LERP_SPEED * dt);
 
@@ -103,6 +110,7 @@ export class PlayerController {
       this.velocityY = 0;
       this.elevation = 'AIRBORNE';
       this.onSurface = null;
+      this.animState = 'JUMP';
       return;
     }
 
@@ -160,5 +168,14 @@ export class PlayerController {
         pushDebugEvent(tickCount, 'dismount', { surfaceKind: s.kind, ownerId: s.ownerId });
       }
     }
+
+    if (wasAirborne && this.elevation !== 'AIRBORNE') {
+      this.landHoldTicks = LAND_HOLD_TICKS;
+    }
+
+    if (this.landHoldTicks > 0) this.animState = 'LAND';
+    else if (this.elevation === 'AIRBORNE') this.animState = 'JUMP';
+    else if (this.sliding) this.animState = 'SLIDE';
+    else this.animState = 'RUN';
   }
 }

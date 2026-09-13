@@ -71,9 +71,20 @@ const OVERHEAD_BARRIER_ON_ROOF: ObstacleSpec = {
   deadlyFaces: ['FRONT'],
 };
 
+const LOW_BARRIER_WALL: ObstacleSpec = {
+  id: 40,
+  type: 'LOW_BARRIER',
+  lane: 1,
+  relativeSpeed: 0,
+  bounds: { x: 0, y: 0.5, z: 13, hx: 1.0, hy: 0.5, hz: 0.4 },
+  landableSurfaces: [],
+  deadlyFaces: ['FRONT'],
+};
+
 export const M5_FIXTURE_SETS: Record<string, ObstacleSpec[]> = {
   default: [],
   'ground-hit': [WALL],
+  'low-barrier-hit': [LOW_BARRIER_WALL],
   'platform-ride-hit': [PLATFORM_WITH_RISER, OVERHEAD_BARRIER_ON_PLATFORM],
   'platform-ride-safe': [PLATFORM_WITH_RISER],
   'train-roof-ride-hit': [RAMP_TRAIN, OVERHEAD_BARRIER_ON_ROOF],

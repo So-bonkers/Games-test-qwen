@@ -10,6 +10,7 @@ import type { PowerUpType } from '@/contracts/pickup';
 import type { SceneRoot } from '@/core/SceneRoot';
 import type { InputQueue } from '@/input/InputQueue';
 import { mulberry32, type Rng } from '@/util/rng';
+import { CRASH_CLIP_BY_OBSTACLE_TYPE } from '@/core/CharacterRig';
 
 const HIGH_SCORE_KEY = 'subway-surfers-high-score';
 
@@ -73,7 +74,7 @@ export class Sim {
       : M4_SURFACES;
 
     this.player.tick(FIXED_TIMESTEP, this.tickCount, debugHook.world.distance, surfaces);
-    this.scene.update(this.player.x, this.player.feetY, this.player.scaleY);
+    this.scene.update(this.player.x, this.player.feetY, this.player.scaleY, this.player.animState, FIXED_TIMESTEP);
 
     if (this.player.magnetTimer > 0) {
       applyMagnetPull(this.spawner.activeCoins(), this.player.x, debugHook.world.distance, FIXED_TIMESTEP);
@@ -111,6 +112,7 @@ export class Sim {
     debugHook.player.elevation = this.player.elevation;
     debugHook.player.velocityY = this.player.velocityY;
     debugHook.player.grounded = this.player.grounded;
+    debugHook.player.animState = this.player.animState;
     debugHook.world.score =
       Math.floor(debugHook.world.distance * DISTANCE_SCORE_MULTIPLIER) + debugHook.world.coins * COIN_VALUE;
 
@@ -133,6 +135,8 @@ export class Sim {
           this.player.consumeHoverboard();
           pushDebugEvent(this.tickCount, 'hoverboardSave', { obstacleId: hit.id });
         } else {
+          this.player.animState = CRASH_CLIP_BY_OBSTACLE_TYPE[hit.type];
+          debugHook.player.animState = this.player.animState;
           pushDebugEvent(this.tickCount, 'collision', { obstacleId: hit.id, elevation: this.player.elevation });
           debugHook.state = 'gameover';
           pushDebugEvent(this.tickCount, 'gameover', { score: debugHook.world.score, cause: 'collision' });

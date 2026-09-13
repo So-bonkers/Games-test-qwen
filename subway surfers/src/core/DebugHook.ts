@@ -8,6 +8,7 @@ const notYet = (name: string) => () => {
 export const debugHook: DebugHook = {
   version: 1,
   state: 'playing',
+  characterLoaded: false,
   stats: {
     frame: 0,
     simTick: 0,
@@ -24,6 +25,7 @@ export const debugHook: DebugHook = {
     elevation: 'GROUND',
     velocityY: 0,
     grounded: true,
+    animState: 'RUN',
   },
   world: { speed: 0, distance: 0, score: 0, coins: 0 },
   pool: { obstaclesActive: 0, obstaclesFree: 0, chunksActive: 0 },

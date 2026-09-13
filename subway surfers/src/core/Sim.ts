@@ -1,4 +1,10 @@
-import { BASE_SPEED, COIN_VALUE, DISTANCE_SCORE_MULTIPLIER, FIXED_TIMESTEP } from '@/core/GameConfig';
+import {
+  BASE_SPEED,
+  COIN_VALUE,
+  DISTANCE_SCORE_MULTIPLIER,
+  FIXED_TIMESTEP,
+  HIGH_SCORE_KEY,
+} from '@/core/GameConfig';
 import { debugHook, pushDebugEvent } from '@/core/DebugHook';
 import { PlayerController } from '@/core/PlayerController';
 import { M4_SURFACES } from '@/fixtures/m4Track';
@@ -11,8 +17,6 @@ import type { SceneRoot } from '@/core/SceneRoot';
 import type { InputQueue } from '@/input/InputQueue';
 import { mulberry32, type Rng } from '@/util/rng';
 import { CRASH_CLIP_BY_OBSTACLE_TYPE } from '@/core/CharacterRig';
-
-const HIGH_SCORE_KEY = 'subway-surfers-high-score';
 
 export class Sim {
   private tickCount = 0;

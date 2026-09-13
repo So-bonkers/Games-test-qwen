@@ -7,7 +7,7 @@ const notYet = (name: string) => () => {
 
 export const debugHook: DebugHook = {
   version: 1,
-  state: 'playing',
+  state: 'menu',
   characterLoaded: false,
   stats: {
     frame: 0,

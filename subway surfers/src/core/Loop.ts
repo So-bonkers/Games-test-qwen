@@ -46,8 +46,8 @@ export class Loop {
         this.onTick(FIXED_TIMESTEP);
         this.accumulator -= FIXED_TIMESTEP;
       }
-      this.onRender();
     }
+    this.onRender();
 
     requestAnimationFrame(this.frame);
   };

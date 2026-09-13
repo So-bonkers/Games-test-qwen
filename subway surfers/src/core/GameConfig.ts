@@ -62,3 +62,5 @@ export const CHARACTER_SCALE = 0.007567532889883256;
 export const CHARACTER_FEET_OFFSET = 0.01348703746057129;
 export const LAND_HOLD_TICKS = 128;
 export const ANIM_CROSSFADE_SECONDS = 0.15;
+
+export const HIGH_SCORE_KEY = 'subway-surfers-high-score';

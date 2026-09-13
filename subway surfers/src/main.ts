@@ -9,6 +9,7 @@ import { M5_FIXTURE_SETS } from '@/fixtures/m5Fixtures';
 import { InputQueue } from '@/input/InputQueue';
 import { attachKeyboard } from '@/input/KeyboardInput';
 import { CharacterRig } from '@/core/CharacterRig';
+import { UI } from '@/ui/UI';
 
 const app = document.getElementById('app');
 if (!app) throw new Error('#app not found in index.html');
@@ -40,9 +41,18 @@ function render(): void {
   if (debugHook.stats.frame % 30 === 0) sampleLuma(renderer.three);
   debugHook.stats.drawCalls = renderer.drawCalls;
   debugHook.stats.triangles = renderer.triangles;
+  ui.update(debugHook);
 }
 
 const loop = new Loop(() => sim.tick(), render);
+
+const ui = new UI(
+  () => {
+    sim.setSeed(Date.now());
+    loop.setPaused(false);
+  },
+  () => location.reload(),
+);
 
 installDebugHook();
 debugHook.seed = (n: number) => sim.setSeed(n);
@@ -52,4 +62,5 @@ debugHook.enqueue = (actions) => input.pushAll(actions);
 debugHook.grantPowerUp = (type) => sim.grantPowerUp(type);
 debugHook.spawnTestCoin = (x, y, z) => sim.spawnTestCoin(x, y, z);
 
+loop.setPaused(true);
 loop.start();

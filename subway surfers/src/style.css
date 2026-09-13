@@ -12,3 +12,53 @@ html, body {
 #app { width: 100%; height: 100%; }
 
 canvas { display: block; width: 100%; height: 100%; }
+
+#hud,
+#menu-screen,
+#gameover-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  color: #fff;
+  pointer-events: none;
+}
+
+#hud[hidden],
+#menu-screen[hidden],
+#gameover-screen[hidden] {
+  display: none;
+}
+
+#hud {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 16px;
+  font-size: 20px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+#menu-screen,
+#gameover-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+
+#menu-screen button,
+#gameover-screen button {
+  pointer-events: auto;
+  font-size: 20px;
+  padding: 12px 32px;
+  border: none;
+  border-radius: 8px;
+  background: #ffcc00;
+  color: #111;
+  cursor: pointer;
+}

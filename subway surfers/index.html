@@ -7,6 +7,25 @@
   </head>
   <body>
     <div id="app"></div>
+    <div id="hud" hidden>
+      <div id="hud-score">Score: 0</div>
+      <div id="hud-coins">Coins: 0</div>
+      <div id="hud-magnet" hidden>Magnet: 0s</div>
+      <div id="hud-sneakers" hidden>Sneakers: 0s</div>
+      <div id="hud-jetpack" hidden>Jetpack: 0s</div>
+      <div id="hud-hoverboard" hidden>Hoverboard x0</div>
+    </div>
+    <div id="menu-screen">
+      <h1>Subway Surfers Clone</h1>
+      <div id="menu-highscore">High Score: 0</div>
+      <button id="btn-play">Play</button>
+    </div>
+    <div id="gameover-screen" hidden>
+      <h1>Game Over</h1>
+      <div id="final-score">Score: 0</div>
+      <div id="final-highscore">High Score: 0</div>
+      <button id="btn-restart">Restart</button>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

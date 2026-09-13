@@ -3,6 +3,7 @@ import { debugHook, pushDebugEvent } from '@/core/DebugHook';
 import { PlayerController } from '@/core/PlayerController';
 import { M4_SURFACES } from '@/fixtures/m4Track';
 import { findFatalCollision, playerBox } from '@/core/Collision';
+import { Spawner } from '@/spawner/Spawner';
 import type { ObstacleSpec } from '@/contracts/obstacle';
 import type { SceneRoot } from '@/core/SceneRoot';
 import type { InputQueue } from '@/input/InputQueue';
@@ -14,12 +15,27 @@ export class Sim {
   private tickCount = 0;
   rng: Rng = mulberry32(1);
   private readonly player = new PlayerController();
+  private readonly spawner: Spawner;
+  private currentObstacles: ObstacleSpec[] = [];
 
   constructor(
     private readonly scene: SceneRoot,
     private readonly input: InputQueue,
-    private readonly obstacles: ObstacleSpec[],
-  ) {}
+    private readonly staticObstacles: ObstacleSpec[],
+    private readonly useProcedural: boolean,
+  ) {
+    this.spawner = new Spawner(scene.scene);
+    debugHook.obstacles = () =>
+      this.currentObstacles.map((o) => ({
+        id: o.id,
+        type: o.type,
+        lane: o.lane,
+        z: o.bounds.z,
+        topY: o.landableSurfaces[0]?.topY ?? null,
+        zRange: [o.bounds.z - o.bounds.hz, o.bounds.z + o.bounds.hz] as [number, number],
+        relativeSpeed: o.relativeSpeed,
+      }));
+  }
 
   setSeed(seed: number): void {
     this.rng = mulberry32(seed);
@@ -39,7 +55,14 @@ export class Sim {
     debugHook.world.speed = BASE_SPEED;
     debugHook.world.distance += BASE_SPEED * FIXED_TIMESTEP;
 
-    this.player.tick(FIXED_TIMESTEP, this.tickCount, debugHook.world.distance, M4_SURFACES);
+    if (this.useProcedural) this.spawner.update(FIXED_TIMESTEP, debugHook.world.distance, this.rng);
+
+    this.currentObstacles = this.useProcedural ? this.spawner.activeObstacles() : this.staticObstacles;
+    const surfaces = this.useProcedural
+      ? this.currentObstacles.flatMap((o) => o.landableSurfaces)
+      : M4_SURFACES;
+
+    this.player.tick(FIXED_TIMESTEP, this.tickCount, debugHook.world.distance, surfaces);
     this.scene.update(this.player.x, this.player.feetY, this.player.scaleY);
 
     debugHook.stats.simTick = this.tickCount;
@@ -53,8 +76,14 @@ export class Sim {
     debugHook.player.grounded = this.player.grounded;
     debugHook.world.score = Math.floor(debugHook.world.distance * DISTANCE_SCORE_MULTIPLIER);
 
+    if (this.useProcedural) {
+      const stats = this.spawner.poolStats;
+      debugHook.pool.obstaclesActive = stats.active;
+      debugHook.pool.obstaclesFree = stats.free;
+    }
+
     const pBox = playerBox(this.player.x, this.player.feetY, debugHook.world.distance, this.player.scaleY);
-    const hit = findFatalCollision(pBox, this.obstacles, this.player.onSurfaceOwnerId);
+    const hit = findFatalCollision(pBox, this.currentObstacles, this.player.onSurfaceOwnerId);
     if (hit) {
       pushDebugEvent(this.tickCount, 'collision', { obstacleId: hit.id, elevation: this.player.elevation });
       debugHook.state = 'gameover';

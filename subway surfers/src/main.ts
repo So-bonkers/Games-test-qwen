@@ -15,8 +15,9 @@ const sceneRoot = new SceneRoot();
 const renderer = new Renderer(app, sceneRoot.camera);
 const input = new InputQueue();
 const fixtureName = new URLSearchParams(location.search).get('fixture') ?? 'default';
-const obstacles = M5_FIXTURE_SETS[fixtureName] ?? M5_FIXTURE_SETS.default;
-const sim = new Sim(sceneRoot, input, obstacles);
+const useProcedural = fixtureName === 'procedural';
+const obstacles = useProcedural ? [] : (M5_FIXTURE_SETS[fixtureName] ?? M5_FIXTURE_SETS.default);
+const sim = new Sim(sceneRoot, input, obstacles, useProcedural);
 
 attachKeyboard(input);
 

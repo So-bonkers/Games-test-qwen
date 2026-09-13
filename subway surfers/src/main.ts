@@ -4,6 +4,7 @@ import { Loop } from '@/core/Loop';
 import { Renderer } from '@/core/Renderer';
 import { SceneRoot } from '@/core/SceneRoot';
 import { Sim } from '@/core/Sim';
+import { M4_SURFACES } from '@/fixtures/m4Track';
 import { M5_FIXTURE_SETS } from '@/fixtures/m5Fixtures';
 import { InputQueue } from '@/input/InputQueue';
 import { attachKeyboard } from '@/input/KeyboardInput';
@@ -19,6 +20,10 @@ const fixtureName = new URLSearchParams(location.search).get('fixture') ?? 'defa
 const useProcedural = fixtureName === 'procedural';
 const obstacles = useProcedural ? [] : (M5_FIXTURE_SETS[fixtureName] ?? M5_FIXTURE_SETS.default);
 const sim = new Sim(sceneRoot, input, obstacles, useProcedural);
+
+if (!useProcedural) {
+  sceneRoot.addStaticTrack(M4_SURFACES, obstacles);
+}
 
 CharacterRig.load()
   .then((rig) => {

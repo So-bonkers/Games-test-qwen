@@ -42,6 +42,13 @@ export class Sim {
 
   setSeed(seed: number): void {
     this.rng = mulberry32(seed);
+    this.tickCount = 0;
+    debugHook.world.speed = 0;
+    debugHook.world.distance = 0;
+    debugHook.world.score = 0;
+    debugHook.world.coins = 0;
+    debugHook.events = [];
+    debugHook.state = 'playing';
   }
 
   grantPowerUp(type: PowerUpType): void {
@@ -74,7 +81,14 @@ export class Sim {
       : M4_SURFACES;
 
     this.player.tick(FIXED_TIMESTEP, this.tickCount, debugHook.world.distance, surfaces);
-    this.scene.update(this.player.x, this.player.feetY, this.player.scaleY, this.player.animState, FIXED_TIMESTEP);
+    this.scene.update(
+      this.player.x,
+      this.player.feetY,
+      this.player.scaleY,
+      this.player.animState,
+      FIXED_TIMESTEP,
+      debugHook.world.distance,
+    );
 
     if (this.player.magnetTimer > 0) {
       applyMagnetPull(this.spawner.activeCoins(), this.player.x, debugHook.world.distance, FIXED_TIMESTEP);

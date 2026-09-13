@@ -1,5 +1,6 @@
 import type { Elevation } from '@/contracts/elevation';
 import type { ObstacleType } from '@/contracts/obstacle';
+import type { PowerUpType } from '@/contracts/pickup';
 
 export interface LumaStats {
   mean: number;
@@ -9,7 +10,7 @@ export interface LumaStats {
 
 export interface DebugEvent {
   tick: number;
-  type: 'collision' | 'land' | 'dismount' | 'coin' | 'spawnRow' | 'gameover';
+  type: 'collision' | 'land' | 'dismount' | 'coin' | 'spawnRow' | 'gameover' | 'powerUp' | 'hoverboardSave';
   data: Record<string, number | string>;
 }
 
@@ -45,10 +46,18 @@ export interface DebugHook {
   };
   world: { speed: number; distance: number; score: number; coins: number };
   pool: { obstaclesActive: number; obstaclesFree: number; chunksActive: number };
+  powerUp: {
+    magnetRemaining: number;
+    sneakersRemaining: number;
+    jetpackRemaining: number;
+    hoverboardCharges: number;
+  };
   obstacles(): DebugObstacle[];
   events: DebugEvent[];
   seed(n: number): void;
   setPaused(paused: boolean): void;
   step(ticks: number): void;
   enqueue(inputs: Array<'left' | 'right' | 'jump' | 'slide'>): void;
+  grantPowerUp(type: PowerUpType): void;
+  spawnTestCoin(x: number, y: number, z: number): void;
 }

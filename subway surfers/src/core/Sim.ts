@@ -1,10 +1,12 @@
-import { BASE_SPEED, DISTANCE_SCORE_MULTIPLIER, FIXED_TIMESTEP } from '@/core/GameConfig';
+import { BASE_SPEED, COIN_VALUE, DISTANCE_SCORE_MULTIPLIER, FIXED_TIMESTEP } from '@/core/GameConfig';
 import { debugHook, pushDebugEvent } from '@/core/DebugHook';
 import { PlayerController } from '@/core/PlayerController';
 import { M4_SURFACES } from '@/fixtures/m4Track';
 import { findFatalCollision, playerBox } from '@/core/Collision';
+import { applyMagnetPull, collectCoins, collectPowerUp } from '@/core/Pickups';
 import { Spawner } from '@/spawner/Spawner';
 import type { ObstacleSpec } from '@/contracts/obstacle';
+import type { PowerUpType } from '@/contracts/pickup';
 import type { SceneRoot } from '@/core/SceneRoot';
 import type { InputQueue } from '@/input/InputQueue';
 import { mulberry32, type Rng } from '@/util/rng';
@@ -41,6 +43,14 @@ export class Sim {
     this.rng = mulberry32(seed);
   }
 
+  grantPowerUp(type: PowerUpType): void {
+    this.player.grantPowerUp(type);
+  }
+
+  spawnTestCoin(x: number, y: number, z: number): void {
+    this.spawner.addTestCoin(x, y, z);
+  }
+
   get simTime(): number {
     return this.tickCount * FIXED_TIMESTEP;
   }
@@ -65,6 +75,33 @@ export class Sim {
     this.player.tick(FIXED_TIMESTEP, this.tickCount, debugHook.world.distance, surfaces);
     this.scene.update(this.player.x, this.player.feetY, this.player.scaleY);
 
+    if (this.player.magnetTimer > 0) {
+      applyMagnetPull(this.spawner.activeCoins(), this.player.x, debugHook.world.distance, FIXED_TIMESTEP);
+    }
+    const collectedCoins = collectCoins(
+      this.spawner.activeCoins(),
+      this.player.x,
+      debugHook.world.distance,
+      this.player.feetY,
+      this.player.scaleY,
+    );
+    for (const c of collectedCoins) {
+      this.spawner.releaseCoin(c.id);
+      debugHook.world.coins++;
+      pushDebugEvent(this.tickCount, 'coin', { coinId: c.id });
+    }
+
+    const collectedPowerUp = collectPowerUp(
+      this.spawner.activePowerUps(),
+      this.player.x,
+      debugHook.world.distance,
+    );
+    if (collectedPowerUp) {
+      this.spawner.releasePowerUp(collectedPowerUp.id);
+      this.player.grantPowerUp(collectedPowerUp.type);
+      pushDebugEvent(this.tickCount, 'powerUp', { powerUpType: collectedPowerUp.type });
+    }
+
     debugHook.stats.simTick = this.tickCount;
     debugHook.stats.simTime = this.simTime;
     debugHook.player.lane = this.player.lane;
@@ -74,7 +111,13 @@ export class Sim {
     debugHook.player.elevation = this.player.elevation;
     debugHook.player.velocityY = this.player.velocityY;
     debugHook.player.grounded = this.player.grounded;
-    debugHook.world.score = Math.floor(debugHook.world.distance * DISTANCE_SCORE_MULTIPLIER);
+    debugHook.world.score =
+      Math.floor(debugHook.world.distance * DISTANCE_SCORE_MULTIPLIER) + debugHook.world.coins * COIN_VALUE;
+
+    debugHook.powerUp.magnetRemaining = this.player.magnetTimer;
+    debugHook.powerUp.sneakersRemaining = this.player.sneakersTimer;
+    debugHook.powerUp.jetpackRemaining = this.player.jetpackTimer;
+    debugHook.powerUp.hoverboardCharges = this.player.hoverboardCharges;
 
     if (this.useProcedural) {
       const stats = this.spawner.poolStats;
@@ -82,16 +125,23 @@ export class Sim {
       debugHook.pool.obstaclesFree = stats.free;
     }
 
-    const pBox = playerBox(this.player.x, this.player.feetY, debugHook.world.distance, this.player.scaleY);
-    const hit = findFatalCollision(pBox, this.currentObstacles, this.player.onSurfaceOwnerId);
-    if (hit) {
-      pushDebugEvent(this.tickCount, 'collision', { obstacleId: hit.id, elevation: this.player.elevation });
-      debugHook.state = 'gameover';
-      pushDebugEvent(this.tickCount, 'gameover', { score: debugHook.world.score, cause: 'collision' });
+    if (!this.player.invulnerable) {
+      const pBox = playerBox(this.player.x, this.player.feetY, debugHook.world.distance, this.player.scaleY);
+      const hit = findFatalCollision(pBox, this.currentObstacles, this.player.onSurfaceOwnerId);
+      if (hit) {
+        if (this.player.hoverboardCharges > 0) {
+          this.player.consumeHoverboard();
+          pushDebugEvent(this.tickCount, 'hoverboardSave', { obstacleId: hit.id });
+        } else {
+          pushDebugEvent(this.tickCount, 'collision', { obstacleId: hit.id, elevation: this.player.elevation });
+          debugHook.state = 'gameover';
+          pushDebugEvent(this.tickCount, 'gameover', { score: debugHook.world.score, cause: 'collision' });
 
-      const stored = Number(localStorage.getItem(HIGH_SCORE_KEY) ?? '0');
-      if (debugHook.world.score > stored) {
-        localStorage.setItem(HIGH_SCORE_KEY, String(debugHook.world.score));
+          const stored = Number(localStorage.getItem(HIGH_SCORE_KEY) ?? '0');
+          if (debugHook.world.score > stored) {
+            localStorage.setItem(HIGH_SCORE_KEY, String(debugHook.world.score));
+          }
+        }
       }
     }
   }

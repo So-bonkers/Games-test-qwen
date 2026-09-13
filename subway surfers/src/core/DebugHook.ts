@@ -27,12 +27,15 @@ export const debugHook: DebugHook = {
   },
   world: { speed: 0, distance: 0, score: 0, coins: 0 },
   pool: { obstaclesActive: 0, obstaclesFree: 0, chunksActive: 0 },
+  powerUp: { magnetRemaining: 0, sneakersRemaining: 0, jetpackRemaining: 0, hoverboardCharges: 0 },
   obstacles: (): DebugObstacle[] => [],
   events: [],
   seed: notYet('seed'),
   setPaused: notYet('setPaused'),
   step: notYet('step'),
   enqueue: notYet('enqueue'),
+  grantPowerUp: notYet('grantPowerUp'),
+  spawnTestCoin: notYet('spawnTestCoin'),
 };
 
 const EVENTS_CAPACITY = 256;

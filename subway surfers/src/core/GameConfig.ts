@@ -45,3 +45,15 @@ export const DISTANCE_SCORE_MULTIPLIER = 1;
 export const COIN_VALUE = 10;
 
 export const FIXED_TIMESTEP = 1 / 120;
+
+export const POWER_UP_DURATION = 8;
+export const MAGNET_RADIUS = 6;
+export const MAGNET_PULL_SPEED = 20;
+export const SNEAKERS_JUMP_MULTIPLIER = 1.5;
+export const JETPACK_HOVER_HEIGHT = 3.2;
+export const COIN_COLLECT_RADIUS_X = 0.8;
+export const COIN_COLLECT_RADIUS_Z = 0.8;
+export const COIN_COLLECT_RADIUS_Y = 1.0;
+export const POWERUP_PICKUP_RADIUS = 1.0;
+export const HOVERBOARD_INVULNERABLE_TICKS = 60;
+export const POWERUP_SPAWN_GAP = 200;

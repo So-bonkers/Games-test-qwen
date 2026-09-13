@@ -36,5 +36,7 @@ debugHook.seed = (n: number) => sim.setSeed(n);
 debugHook.setPaused = (paused: boolean) => loop.setPaused(paused);
 debugHook.step = (ticks: number) => loop.stepTicks(ticks);
 debugHook.enqueue = (actions) => input.pushAll(actions);
+debugHook.grantPowerUp = (type) => sim.grantPowerUp(type);
+debugHook.spawnTestCoin = (x, y, z) => sim.spawnTestCoin(x, y, z);
 
 loop.start();

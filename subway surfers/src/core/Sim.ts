@@ -1,10 +1,14 @@
-import { BASE_SPEED, FIXED_TIMESTEP } from '@/core/GameConfig';
-import { debugHook } from '@/core/DebugHook';
+import { BASE_SPEED, DISTANCE_SCORE_MULTIPLIER, FIXED_TIMESTEP } from '@/core/GameConfig';
+import { debugHook, pushDebugEvent } from '@/core/DebugHook';
 import { PlayerController } from '@/core/PlayerController';
 import { M4_SURFACES } from '@/fixtures/m4Track';
+import { findFatalCollision, playerBox } from '@/core/Collision';
+import type { ObstacleSpec } from '@/contracts/obstacle';
 import type { SceneRoot } from '@/core/SceneRoot';
 import type { InputQueue } from '@/input/InputQueue';
 import { mulberry32, type Rng } from '@/util/rng';
+
+const HIGH_SCORE_KEY = 'subway-surfers-high-score';
 
 export class Sim {
   private tickCount = 0;
@@ -14,6 +18,7 @@ export class Sim {
   constructor(
     private readonly scene: SceneRoot,
     private readonly input: InputQueue,
+    private readonly obstacles: ObstacleSpec[],
   ) {}
 
   setSeed(seed: number): void {
@@ -25,6 +30,8 @@ export class Sim {
   }
 
   tick(): void {
+    if (debugHook.state === 'gameover') return;
+
     const actions = this.input.drain();
     for (const action of actions) this.player.applyAction(action);
 
@@ -44,5 +51,19 @@ export class Sim {
     debugHook.player.elevation = this.player.elevation;
     debugHook.player.velocityY = this.player.velocityY;
     debugHook.player.grounded = this.player.grounded;
+    debugHook.world.score = Math.floor(debugHook.world.distance * DISTANCE_SCORE_MULTIPLIER);
+
+    const pBox = playerBox(this.player.x, this.player.feetY, debugHook.world.distance, this.player.scaleY);
+    const hit = findFatalCollision(pBox, this.obstacles, this.player.onSurfaceOwnerId);
+    if (hit) {
+      pushDebugEvent(this.tickCount, 'collision', { obstacleId: hit.id, elevation: this.player.elevation });
+      debugHook.state = 'gameover';
+      pushDebugEvent(this.tickCount, 'gameover', { score: debugHook.world.score, cause: 'collision' });
+
+      const stored = Number(localStorage.getItem(HIGH_SCORE_KEY) ?? '0');
+      if (debugHook.world.score > stored) {
+        localStorage.setItem(HIGH_SCORE_KEY, String(debugHook.world.score));
+      }
+    }
   }
 }

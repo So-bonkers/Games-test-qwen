@@ -26,6 +26,10 @@ export class PlayerController {
     return this.elevation !== 'AIRBORNE';
   }
 
+  get onSurfaceOwnerId(): number | null {
+    return this.onSurface?.ownerId ?? null;
+  }
+
   applyAction(action: InputAction): void {
     if (action === 'left') this.lane = Math.max(0, this.lane - 1) as 0 | 1 | 2;
     if (action === 'right') this.lane = Math.min(2, this.lane + 1) as 0 | 1 | 2;
@@ -101,6 +105,7 @@ export class PlayerController {
         this.feetY = 0;
         this.velocityY = 0;
         this.elevation = 'GROUND';
+        this.onSurface = null;
       }
     } else {
       const s = this.onSurface as LandableSurface;
@@ -113,7 +118,6 @@ export class PlayerController {
         this.elevation = 'AIRBORNE';
         this.velocityY = 0;
         pushDebugEvent(tickCount, 'dismount', { surfaceKind: s.kind, ownerId: s.ownerId });
-        this.onSurface = null;
       }
     }
   }

@@ -59,8 +59,20 @@ test.describe('smoke', () => {
   test('frame is not black and has tonal spread', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.__GAME__?.stats.luma.distinctBuckets > 0);
-    const a = await page.evaluate(() => ({ ...window.__GAME__.stats.luma }));
-    await page.waitForTimeout(1000);
+    const a = await page.evaluate(() => {
+      window.__GAME__.setPaused(true);
+      return { ...window.__GAME__.stats.luma };
+    });
+
+    // The idle scene is pixel-static since M3 (no bobbing), so sample again only after
+    // moving the player. A jump keeps the capsule inside the luma crop for the whole
+    // flight, and single-tick steps guarantee a render — and thus a luma update, which
+    // fires every 30 frames — lands mid-flight.
+    await page.evaluate(() => {
+      window.__GAME__.enqueue(['jump']);
+      for (let i = 0; i < 45; i++) window.__GAME__.step(1);
+    });
+
     const b = await page.evaluate(() => ({ ...window.__GAME__.stats.luma }));
 
     expect(b.p99, 'p99 luminance').toBeGreaterThan(0.06);

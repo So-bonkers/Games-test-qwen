@@ -1,5 +1,4 @@
 import '@/style.css';
-import { PLAYER_HEIGHT } from '@/core/GameConfig';
 import { debugHook, installDebugHook, sampleLuma } from '@/core/DebugHook';
 import { Loop } from '@/core/Loop';
 import { Renderer } from '@/core/Renderer';
@@ -24,7 +23,6 @@ function render(): void {
   if (debugHook.stats.frame % 30 === 0) sampleLuma(renderer.three);
   debugHook.stats.drawCalls = renderer.drawCalls;
   debugHook.stats.triangles = renderer.triangles;
-  debugHook.player.feetY = sceneRoot.placeholder.position.y - PLAYER_HEIGHT / 2;
 }
 
 const loop = new Loop(() => sim.tick(), render);

@@ -61,8 +61,9 @@ export class SceneRoot {
     this.scene.add(this.placeholder);
   }
 
-  update(simTime: number): void {
-    this.placeholder.position.y = PLAYER_HEIGHT / 2 + Math.sin(simTime * 3) * 0.25;
-    this.placeholder.rotation.y = simTime * 0.8;
+  update(x: number, feetY: number, scaleY: number): void {
+    this.placeholder.position.x = x;
+    this.placeholder.position.y = feetY + (PLAYER_HEIGHT * scaleY) / 2;
+    this.placeholder.scale.y = scaleY;
   }
 }

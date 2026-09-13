@@ -1,0 +1,11 @@
+{
+  "headless": true,
+  "args": [
+    "--use-gl=angle",
+    "--use-angle=gl",
+    "--enable-unsafe-swiftshader",
+    "--no-sandbox"
+  ],
+  "renderer": "ANGLE (AMD, AMD Radeon RX 7900 XTX (radeonsi navi31 ACO), OpenGL ES 3.2)",
+  "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)"
+}

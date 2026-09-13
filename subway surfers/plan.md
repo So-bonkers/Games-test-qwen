@@ -1,196 +1,259 @@
-# Subway Surfers Clone: Phasewise Development Plan
+# Subway Surfers Clone — Executor Spine (v3)
 
-## Overview
-This plan outlines the development of a 3D endless runner clone using **Three.js**, **Vite**, and vanilla TypeScript, based on successful open-source references like the "Cave Runner" series and `web-runner-game`. Key improvements over v1 include: architecture-first approach, mobile-first design, performance budgeting, difficulty progression, asset pipeline, and re-ordered phases for incremental delivery.
+## How to read this document
 
----
+This is **not** a design discussion. It is a spine: a set of frozen decisions and mechanically-verifiable milestones, written to be expanded one milestone at a time into atomic task lists (`microplan/NN-*.md`) and executed by a **non-reasoning model** (local Qwen, thinking disabled, driven by dsh).
 
-### Phase 0: Architecture & Project Scaffold
-**Goal:** Define project structure, coding conventions, and scaffold the build pipeline before writing game code.
-* **Tasks:**
-  1. Initialize Vite + TypeScript project (`npm create vite@latest --template vanilla-ts`).
-  2. Install dependencies: `three`, `@types/three`.
-  3. Define folder structure:
-     ```
-     src/
-       core/          — GameLoop, SceneController, AssetManager
-       input/         — Keyboard + Touch/Swipe handlers
-       entities/      — Player, Obstacle, Coin, PowerUp base classes
-       systems/       — CollisionSystem, Spawner, ScoreSystem, AudioSystem
-       ui/            — HUD, Menus, overlays (HTML/CSS)
-       assets/        — Models (.glb), textures, audio files
-       types/         — Shared TypeScript interfaces & enums
-     ```
-  4. Set up a central `GameConfig` module (constants for lane width, gravity, speeds, colors).
-  5. Create shared type definitions:
-     - `Lane = 0 | 1 | 2`, `GameState = 'menu' | 'playing' | 'paused' | 'gameover'`, `EntityType`, `PowerUpType`.
-  6. Install dev dependencies: `vite-plugin-glsl` (for shader support if needed), `three/examples/jsm/controls/OrbitControls` (debug camera).
-* **Success Criteria:** Project builds, runs, and renders a blank Three.js scene at 60 FPS on desktop and mobile browsers.
+Rules that follow from that:
+
+- **No decision is left open here.** If this document does not specify it, the microplan for that milestone specifies it. The executor never chooses.
+- **No verification step requires eyes.** The executor cannot see the screen. Every gate is a command with an exit code.
+- **No file is ever partially edited from git history.** Every file is either restored byte-exact from commit `1fc1d10`, or written fresh from an exhaustive spec. Refactoring requires reading, inferring, and deciding — the three things the executor cannot do.
+
+Human review is real but **batched** into four checkpoints (see Human Queue).
 
 ---
 
-### Phase 1: Core Engine & Render Loop
-**Goal:** Establish the Three.js scene, camera, lighting, and game loop.
-* **Tasks:**
-  1. Set up `PerspectiveCamera` with a fixed forward-facing angle (Subway Surfers style — behind-and-above character).
-  2. Implement responsive canvas: handle `resize` events, adjust camera aspect ratio and renderer size.
-  3. Add directional light + ambient light for basic scene illumination.
-  4. Create a ground plane that visually scrolls toward the player (or keep ground static and move world toward player).
-  5. Implement the **GameLoop** using `requestAnimationFrame` with delta-time accumulation for frame-rate-independent movement.
-  6. Add a simple debug overlay showing FPS, score, and speed (uses DOM, not canvas).
-* **Success Criteria:** A visible ground plane scrolls continuously; camera follows player; FPS counter works.
+## Why v3 exists
+
+v2 was prose for a reasoning implementer and had no verification phase at all — it deleted the per-phase success criteria v1 had.
+
+The previous attempt (commit `1fc1d10`, "Phases 0-4", ~2,600 LOC, now wiped from the working tree) **died on an unexplained black screen** after building for days without ever proving the render pipeline worked. It left four abandoned diagnostic files.
+
+Post-mortem, verified on this machine:
+
+- **The GPU was never the problem.** AMD Radeon RX 7900 XTX, Mesa 26.0.8, `direct rendering: Yes`, GL 4.6, `/dev/dri/renderD128`, `DISPLAY=:0`.
+- **The diagnostic harness was broken.** `test-harness.cjs` launched Chromium with `--disable-gpu`; since Chrome 119 that yields a **null WebGL context** unless `--enable-unsafe-swiftshader` is also passed. It also called `page.waitForTimeout`, removed in Puppeteer v22 (the project pinned 25.10.0). So the tool that was supposed to explain the black screen could not run, and when it did it manufactured one.
+- **There was a real app bug too** — a missing `@/types` import in `GameConfig.ts`, which `diagnose.mjs` found and called "the bug we just fixed."
+- `index.html` loaded `/src/main.ts?v=2`, a manual cache-buster: they were fighting a stale-module ghost.
+
+The lesson is not "be careful with WebGL." It is: **the project had no way to tell a dead renderer from a crashed script from a zero-size canvas.** v3 builds that instrument first, in M0, before a single line of game code.
 
 ---
 
-### Phase 2: Character & Animation System
-**Goal:** Create a playable character with smooth animations for all movement states.
-* **Assets:** Download rigged characters from Mixamo (Run, Jump, Slide/Roll, Crash/Fall animations). Export as `.glb`.
-* **Tasks:**
-  1. Implement an `AssetManager` that loads `.glb` models asynchronously and caches them.
-  2. Create a `Player` class extending `THREE.Group` containing the loaded character mesh.
-  3. Set up `AnimationMixer` + `AnimationAction` for each state (Run, Jump, Slide, Crash).
-  4. Build a simple animation state machine: only one action plays at a time; transitions use crossfade duration (~0.15s).
-  5. Position the player at a fixed Z position (e.g., Z = 0) — the world moves toward them, not vice versa (this simplifies collision math and floating-point precision).
-* **Success Criteria:** Character appears in scene, runs in place with loop animation, can transition to jump/slide states on keypress.
+## Frozen decisions
+
+| Area | Decision |
+|---|---|
+| Prior code | Clean rewrite. Cherry-pick **values**, never architecture. |
+| Character | Mixamo, downloaded by a human up front. Capsule proxy until M8. |
+| Assets | Executor never downloads or selects assets. All asset acquisition is a Human Queue item. |
+| Post-FX | Last milestone. Wired mechanically one pass at a time, tuned by eye afterward. |
+| Randomness | `mulberry32`, seeded. `Math.random()` is **banned repo-wide** and grep-enforced by the gate. |
+| Timestep | Fixed 1/120 s accumulator, decoupled from RAF. |
+| Enums | Plain string unions only. **`const enum` is banned** — it is an `isolatedModules`/esbuild hazard and was in the crash lineage here. |
+| Test runner | Playwright. **Puppeteer is removed from the project.** |
+| Renderer construction | Every `new THREE.WebGLRenderer(...)` in this project **must** pass `preserveDrawingBuffer: true`. On this machine's GPU/driver path, `gl.readPixels` returns stale/frozen values without it — found during M1 when the debug hook's luma sampling read frozen data from a live, animating scene. |
+| Scene background | Never a flat `THREE.Color`. Use `createSkyGradientTexture()` (`src/core/SkyGradient.ts`, written in M1). A flat fill was found in M0/M1 to leave the tonal-spread render-verification check unsatisfiable on this GPU/driver path — see the flagged risk below. |
+
+### Pinned toolchain
+
+Exact versions, verified from the previous `package-lock.json`. Do not substitute or upgrade.
+
+| Package | Version |
+|---|---|
+| three | 0.170.0 |
+| @types/three | 0.170.0 |
+| typescript | 5.6.3 |
+| vite | 6.4.3 |
+| @playwright/test | 1.63.0 |
+
+Node is v24.16.0. `"type": "module"`.
+
+### Frozen world conventions
+
+The executor gets axis conventions backwards if they are not stated. They are:
+
+- **Lanes are X.** `LANE_POSITIONS = [-3, 0, 3]`, indexed `0 | 1 | 2` left→right.
+- **Depth is Z, and the world moves toward −Z.** Obstacles spawn at high +Z (`SPAWN_DISTANCE = 120`), decrease in Z each tick, and despawn behind the player at `z < -DESPAWN_DISTANCE`. The player stays near `z = 0`.
+- **Up is +Y.** Ground is `y = 0`. `feetY` is the bottom of the player, not the origin.
+- Camera sits at `(0, 5.5, -9)` looking at `(0, 1.5, 8)`.
+
+### Salvage manifest
+
+Restore **byte-exact** with `git show "HEAD:subway surfers/<path>"`:
+
+- `src/systems/ObjectPool.ts` — 67 lines, generic over `THREE.Object3D`, dependency-free.
+
+Copy **values only** into a freshly written `src/core/GameConfig.ts` (drop the `import { PowerUpType } from '@/types'` — that coupling is the crash lineage):
+
+`LANE_POSITIONS [-3,0,3]` · `LANE_WIDTH 2.5` · `PLAYER_HEIGHT 1.8` · `PLAYER_WIDTH 0.8` · `PLAYER_DEPTH 0.6` · `PLAYER_SLIDE_SCALE 0.5` · `PLATFORM_HEIGHT 1.0` · `TRAIN_LENGTH 9` · `TRAIN_ROOF_HEIGHT 2.5` · `RAMP_LENGTH 3.0` · `FAST_TRAIN_EXTRA_SPEED 10` · `LERP_SPEED 12` · `JUMP_VELOCITY 9` · `GRAVITY -22` · `FAST_FALL_SPEED 16` · `SLIDE_DURATION 0.6` · `BASE_SPEED 14` · `MAX_SPEED 28` · `SPEED_INCREMENT 0.5` · `SPEED_INTERVAL 30` · `SPAWN_DISTANCE 120` · `DESPAWN_DISTANCE 20` · `CHUNK_SIZE 50` · `MIN_SPAWN_GAP 12` · `MAX_SPAWN_GAP 22` · `TUNNEL_MIN_GAP 70` · `TUNNEL_MAX_GAP 120` · `FOG_NEAR 60` · `FOG_FAR 140` · `COIN_VALUE 10`
+
+Lift the **weighted solvable-pattern table** from the old `Spawner.pickPattern()` (real design work) in M6 — the table, not the 387-line class.
+
+**Discard entirely:** `Game.ts` (590-line god object), `Player.ts` (ad-hoc elevation), `types/index.ts` (all `const enum`), `AssetManager.ts` (never loaded anything), and all four diagnostic files.
 
 ---
 
-### Phase 3: Movement Mechanics & Controls
-**Goal:** Implement lane switching, jumping, sliding, and touch input for mobile.
-* **Tasks:**
-  1. **Input System (`input/`):**
-     - Keyboard: Arrow keys / WASD for desktop.
-     - Touch: Swipe detection (threshold-based gesture recognizer) + tap for jump.
-     - Normalize all input into a single `InputState` object consumed by the game loop.
-  2. **Lane Switching:** Three lanes at fixed X positions (e.g., -3, 0, +3). Smooth interpolation using `lerp` with configurable speed (~8 units/sec). Prevent out-of-bounds movement.
-  3. **Jumping:** Gravity-based vertical physics (`velocity.y -= gravity * dt`). On ground → allow jump; in air → block jump (unless Super Sneakers active).
-  4. **Sliding:** Shrink player height (Y scale to ~0.5) for a fixed duration (~0.6s) or until animation ends. Prevent jumping while sliding.
-  5. **Physics constraints:** Ground check via raycast downward; clamp velocity; prevent tunneling at high speeds.
-* **Success Criteria:** Player responds instantly to input, switches lanes smoothly, jumps and slides correctly, works on both desktop keyboard and mobile touch.
+## Frozen contracts
+
+Written in M1 into `src/contracts/`. Named `contracts/`, not `types/`, to signal *do not edit*. These are the interfaces every later milestone codes against; if each milestone invented its own, the executor would produce divergent versions.
+
+```ts
+// src/contracts/elevation.ts
+export type Elevation = 'GROUND' | 'AIRBORNE' | 'ON_PLATFORM' | 'ON_TRAIN_ROOF';
+
+export interface LandableSurface {
+  topY: number;         // world Y of the walkable top
+  zStart: number;       // near edge (smaller Z), zStart < zEnd
+  zEnd: number;         // far edge
+  xCenter: number;
+  halfWidth: number;
+  kind: 'PLATFORM' | 'TRAIN_ROOF';
+  rampZEnd?: number;    // if set, [zStart, rampZEnd] slopes linearly 0 -> topY
+  ownerId: number;      // ObstacleSpec.id that owns this surface
+}
+```
+
+```ts
+// src/contracts/obstacle.ts
+export type ObstacleType =
+  | 'LOW_BARRIER' | 'HIGH_BARRIER' | 'FULL_BLOCK'
+  | 'PLATFORM' | 'TRAIN' | 'RAMP_TRAIN';
+
+export interface ObstacleSpec {
+  id: number;
+  type: ObstacleType;
+  lane: 0 | 1 | 2;
+  relativeSpeed: number;   // 0 = static; > 0 closes on the player faster than world scroll
+  bounds: { x: number; y: number; z: number; hx: number; hy: number; hz: number };
+  landableSurfaces: LandableSurface[];
+  deadlyFaces: Array<'FRONT' | 'SIDE' | 'TOP'>;
+}
+```
+
+```ts
+// src/contracts/debug.ts — the entire verification surface
+export interface DebugHook {
+  version: 1;
+  state: 'menu' | 'playing' | 'gameover';
+  stats: {
+    frame: number; simTick: number; simTime: number;
+    drawCalls: number; triangles: number;
+    luma: { mean: number; p99: number; distinctBuckets: number };
+  };
+  player: {
+    lane: 0 | 1 | 2; x: number; y: number; feetY: number;
+    elevation: Elevation; velocityY: number; grounded: boolean;
+  };
+  world: { speed: number; distance: number; score: number; coins: number };
+  pool: { obstaclesActive: number; obstaclesFree: number; chunksActive: number };
+  obstacles(): Array<{
+    id: number; type: ObstacleType; lane: 0 | 1 | 2; z: number;
+    topY: number | null; zRange: [number, number]; relativeSpeed: number;
+  }>;
+  events: Array<{                      // ring buffer, capacity 256
+    tick: number;
+    type: 'collision' | 'land' | 'dismount' | 'coin' | 'spawnRow' | 'gameover';
+    data: Record<string, number | string>;
+  }>;
+  seed(n: number): void;
+  setPaused(paused: boolean): void;
+  step(ticks: number): void;           // advances exactly n fixed steps with RAF paused
+  enqueue(inputs: Array<'left' | 'right' | 'jump' | 'slide'>): void;
+}
+```
+
+Exposed as `window.__GAME__` under `if (import.meta.env.DEV)` only. **Every value is plain JSON** — no class instances, no enum members, no `THREE.Vector3`.
+
+Determinism comes from `seed()` + `setPaused(true)` + `step(n)`. Tests never use wall-clock waits. Input goes through `enqueue()`, not synthetic key events, so tests skip focus and keymap flakiness. One separate test asserts that a real `keydown` reaches `enqueue`.
 
 ---
 
-### Phase 4: Procedural Environment & Obstacle Spawning
-**Goal:** Create an infinite, randomized track with varied obstacles and coins.
-* **Tasks:**
-  1. **Object Pooling:** Pre-allocate pools for obstacles and coins (e.g., pool of 20 obstacle meshes) to avoid GC spikes from create/destroy.
-  2. **Chunk System:** Spawn ground segments in chunks of ~50 units ahead of the player; recycle segments behind the player back into the spawn queue.
-  3. **Obstacle Types** (each defined in a data config):
-     - **Low barrier** (red) — requires jump. Hitbox: low, spans one lane.
-     - **High barrier** (blue) — requires slide. Hitbox: high, spans one lane.
-     - **Full block / train** (gray) — requires lane switch. Hitbox: full height, spans one lane, ~10 units long.
-     - **Mixed patterns:** e.g., low barrier in lane 0 + train in lane 2 → forces jump AND lane change.
-  4. **Coin Placement:** Scatter coins in arcs, lines, or risky patterns (e.g., coins behind a full block requiring lane switch). Use coin pool.
-  5. **Spawn Manager:** Determines next spawn position based on `gameSpeed` and `spawnDistance`. Ensures no impossible combinations (at least one lane is always passable).
-* **Success Criteria:** Obstacles and coins spawn procedurally, recycle correctly, and never create an unbeatable configuration.
+## Verification architecture
+
+**Screenshots are artifacts, never gates.** The executor cannot look at them. Gates are numeric.
+
+### Tier 1 — liveness
+Zero `pageerror`. Zero `console.error` outside an explicit allowlist in `test/benign-console.ts`. Canvas `width`, `height`, `clientWidth`, `clientHeight` all > 0. `getContext('webgl2')` non-null and `!isContextLost()`.
+
+### Tier 2 — rendered pixels
+The hook reads a 64×64 downsample via `gl.readPixels` — no PNG decode, no screenshot parsing. Pass requires **all three**: `p99 luma > 0.06`, `distinctBuckets >= 8`, and `mean` differing across two samples taken a second apart. A legitimately dark night scene has a neon high-luma tail and tonal spread; a dead frame has neither, and a frozen frame fails the third check.
+
+**This is the assertion that would have caught the original black screen on day one.**
+
+### Tier 3 — semantic
+Driven through the debug hook with a fixed seed. Representative:
+
+- `seed(7); enqueue(['jump']); step(60)` ⇒ `player.elevation === 'ON_TRAIN_ROOF'` and `|player.feetY - 2.5| < 0.01`
+- `enqueue(['left']); step(30)` ⇒ `player.lane === 0` and `|player.x + 3| < 0.05`
+- Spawn fairness: for every distinct z-bucket in `obstacles()`, `blockedLanes.size < 3`
+- 3000 ticks ⇒ `pool.obstaclesActive + pool.obstaclesFree` constant (no leak)
+- Collision ⇒ exactly one `collision` event, then `state === 'gameover'`
+
+### Output contract
+
+Exit **0** pass · **2** environment fault (null context, 0×0 canvas, server unreachable) · **3** game fault (pageerror, stalled loop, black frame).
+
+One line per assertion:
+
+```
+PASS canvas-geometry
+FAIL loop-advancing expected=>=20 actual=0 hint=The render loop is not calling requestAnimationFrame; check Loop.start() is invoked from main.ts
+NEXT: src/core/Loop.ts
+```
+
+The `hint` and `NEXT` fields are what make a failure actionable for a model that cannot reason about it.
+
+### Gating tiers
+
+- **After every atomic task** (target < 15 s): `tsc -b --noEmit` then `vite build`. Nothing else. These emit `file:line:message`, which the executor can act on directly.
+- **After every milestone** (2–4 min): `npm run gate` — the above plus `playwright test` against `vite preview` (the production build, not the dev server).
+- **Regression:** every milestone's spec file stays in the suite permanently. Milestone N runs specs 1..N.
 
 ---
 
-### Phase 5: Collision Detection & Gameplay Loop
-**Goal:** Handle collisions, scoring, game over, and high score persistence.
-* **Tasks:**
-  1. **Collision System:** Axis-aligned bounding box (AABB) checks between player hitbox and all active obstacles/coins. Use `THREE.Box3` for each frame. Optimize by only checking objects within a ~15-unit radius.
-  2. **Coin Collection:** On coin collision → remove coin from scene, return to pool, increment coin counter, play chime sound.
-  3. **Obstacle Collision:**
-     - If Hoverboard active → destroy hoverboard, knock player back slightly, no game over.
-     - Otherwise → trigger crash animation, transition to `gameover` state.
-  4. **Scoring:** Score = distance meters traveled + (coins × 10). Display live score in HUD.
-  5. **Game Speed Progression:** Start at base speed (e.g., 10 units/sec), increase by 0.5 every 30 seconds, capped at 25. Obstacle density also scales with speed.
-  6. **Game Over Screen:** Show final score, high score, and "Play Again" button. Transition back to menu on restart.
-  7. **Persistence:** Save `{ highScore, totalCoins }` to `localStorage`. Load on startup.
-* **Success Criteria:** Coins collect with visual/audio feedback; obstacles trigger game over correctly; speed increases over time; high score persists across reloads.
+## Milestones
+
+Risk is deliberately front-loaded: M4 and M5 — the elevation state machine and collision, this plan's stated #1 risk and the thing the last attempt never wrote at all — land against a hand-authored fixture track, before any procedural content exists to confuse a failure.
+
+| # | Milestone | Definition of Done (mechanical) |
+|---|---|---|
+| **M0** | **Environment gate** — zero `src/` code | Probe ladder G0–G5 all green: deps install → `glxinfo` direct rendering → headed WebGL2 → headless WebGL2 → Vite serves modules with correct MIME over a path containing a space → Three.js cube passes the luma probe. Writes working launch args to `test/gl-profile.json`. **Nothing else starts until this is green.** |
+| **M1** | Contracts + harness + skeleton | `src/contracts/*` byte-match this document; `tsc -b` clean; `window.__GAME__` returns a valid snapshot; Tier 1 + Tier 2 pass against the real Vite app |
+| **M2** | Core loop, split modules | `Renderer`, `SceneRoot`, `Loop`, `Input` each < 150 LOC; `step(120)` advances `simTime` by 1.0 within 1e-9; `grep -rn 'Math.random(' src/` returns only `rng.ts` |
+| **M3** | Player kinematics (capsule proxy) | Lane lerp, jump, slide, fast-fall. Scripted input ⇒ exact `x`/`y` at named frames |
+| **M4** | **Elevation state machine** (fixture track) | Fixture with one platform + one ramp train; scripted inputs drive `GROUND→ON_PLATFORM→GROUND→ON_TRAIN_ROOF→GROUND`; the `events` transition list matches exactly |
+| **M5** | **Collision + death + score** | `Box3` present; front-face hit at all 3 elevations ⇒ `gameover`; landing on a `LandableSurface` ⇒ no death; score increments; high score persists to `localStorage` |
+| **M6** | Track streaming + spawner + `relativeSpeed` | Salvaged pattern table wired to `ObstacleSpec`; 5 fixed seeds × 3000 ticks with a scripted optimal bot ⇒ 0 deaths; pool size never grows after frame 600 |
+| **M7** | Coins + power-ups | Magnet, sneakers, jetpack, hoverboard each assert via snapshot deltas; hoverboard converts exactly one fatal hit into survival |
+| **M8** | Mixamo character | **Requires Human Queue item 1 complete.** GLB loads, clips map to player states, capsule proxy removed, all prior specs still green |
+| **M9** | UI + audio + HUD | DOM assertions on score/coins/timers; `menu → play → gameover → restart` fully drivable from the harness |
+| **M10** | Environment art + lighting — **see flagged risk below** | Draw calls under budget; `InstancedMesh` counts asserted; Tier 2 still passes |
+| **M11** | Post-FX — **one pass per task** | Each of RenderPass → Bloom → Halftone → Chromatic → Sobel → Glitch → Film → Output added individually, with Tier 2 and the frame-time budget re-asserted after each; quality tiers switchable via `__GAME__` |
+
+**Flagged risk for M10:** during M0/M1, `MeshStandardMaterial` lit by `AmbientLight` + `DirectionalLight` showed almost no directional-light response on this GPU/driver combination (Mesa/ANGLE on the RX 7900 XTX) — a rotating cube's faces were visually near-identical regardless of orientation, with luma matching the ambient term alone. This was worked around for M0/M1 by switching to a gradient sky background rather than depending on lighting for tonal variety, which was the right call for a render-verification gate. It has **not** been root-caused (candidates: Three.js's physically-based light-unit change post-r155 making a "reasonable-looking" intensity value like 2.0 actually negligible in lux terms, or a driver-specific shading path issue) and is out of scope until M10, which is the first milestone whose actual deliverable depends on lighting looking right. Budget real investigation time there; do not assume raising intensity numbers blindly will fix it.
+
+Spawn fairness rule for M6, stated so it is not re-derived: lead distance scales with closing speed as `lead = baseLead * (1 + relativeSpeed / worldSpeed)`, and a row is only valid if at least one lane is survivable **from the player's currently reachable elevation states** — a lane whose only opening is a platform the player cannot reach in time does not count as open.
 
 ---
 
-### Phase 6: Power-Ups & Collectibles
-**Goal:** Add signature Subway Surfers power-ups with timed effects and visual indicators.
-* **Tasks:**
-  1. **Power-Up Data Schema:** Each power-up has `type`, `duration` (seconds), `icon`, and an `activate()` / `deactivate()` handler.
-  2. **Coin Magnet:** When active, coins within a ~8-unit radius accelerate toward the player. Visual: subtle magnetic field ring around player.
-  3. **Super Sneakers:** Double jump height (multiply jump velocity by 1.8). Visual: green glow on character feet.
-  4. **Jetpack:** Lift player upward for ~4 seconds, ignore gravity, collect all overhead coins. Visual: rocket trail particles.
-  5. **Hoverboard:** "Life saver." Active until hit by an obstacle. Visual: board mesh under player's feet with glow effect.
-  6. **Multiplier (2x / 3x):** Doubles or triples score for a duration. Visual: floating number above player.
-  7. **HUD Timer Bar:** Each active power-up shows a shrinking timer bar in the HUD top bar.
-* **Success Criteria:** All five power-ups function correctly with proper activation, visual feedback, and expiration.
+## Human Queue
+
+Lives in `HUMAN-QUEUE.md`. **No milestone depends on it except M8.** The executor never performs, waits on, or reports about these.
+
+1. **Mixamo pre-flight** (blocks M8, startable now): download character GLB + clips for run, jump, slide, land, crash.
+2. Audio selection: music + SFX for jump, land, coin, crash, hoverboard bounce.
+3. Any licensing decision, including whether a credits screen is required.
+
+### Batched review checkpoints
+
+Four sessions, each with a written checklist. Everything between them ships unattended.
+
+| After | Judge |
+|---|---|
+| M3 | Movement feel — jump arc, lane-switch snappiness |
+| M6 | Difficulty ramp and spawn fairness |
+| M9 | UI clarity and audio mix |
+| M11 | Art direction — whether the halftone/chromatic look actually works |
+
+Machines can bound these but not judge them: assert p95 frame time < 20 ms and no 60-frame window exceeding 33 ms; assert composer passes are in the specified order; assert every audio asset loaded. Those catch regressions, not ugliness.
 
 ---
 
-### Phase 7: UI Menus & Polish
-**Goal:** Deliver a complete user experience with menus, audio, and visual polish.
-* **Tasks:**
-  1. **HUD Overlay (HTML/CSS overlay on top of canvas):**
-     - Top bar: live score (left), coin count (right).
-     - Active power-up timer bars (center-top).
-  2. **Main Menu Screen:**
-     - Title banner with animated character preview.
-     - "Play" button, "Character Select" button, "Settings" button.
-     - High score display at bottom.
-  3. **Character Select Screen:**
-     - Grid of unlocked characters (initially 1 locked, rest unlockable via coin count).
-     - Click to select → preview animation → confirm.
-  4. **Game Over Screen:** Final score, coins collected this run, high score, "Play Again" + "Menu" buttons.
-  5. **Audio System:**
-     - Web Audio API or Three.js `Sound` for background music loop, jump/land/chime/crash sounds.
-     - Volume controls in Settings (Music, SFX).
-     - Mute toggle.
-  6. **Settings Screen:** Volume sliders, mute toggle, fullscreen button.
-  7. **Visual Polish:**
-     - Particle system for coin collection (small sparkle burst).
-     - Screen shake on crash (camera offset + return).
-     - Fog or gradient background to hide world edge.
-     - Skybox or gradient sky dome.
-* **Success Criteria:** Full menu flow (Menu → Play → Game Over → Menu) works; audio plays correctly; UI is responsive on mobile and desktop.
+## Expansion workflow
 
----
-
-### Phase 8: Performance Optimization & Testing
-**Goal:** Ensure smooth 60 FPS performance and polish edge cases.
-* **Tasks:**
-  1. **Frustum Culling:** Rely on Three.js built-in frustum culling (enabled by default); verify with renderer stats.
-  2. **Geometry Reuse:** Share geometries across all instances of the same obstacle/coin type. Only materials differ.
-  3. **Texture Optimization:** Compress textures; use reasonable resolution (512×512 max for most assets).
-  4. **Draw Call Batching:** Merge static geometry where possible; keep material count low.
-  5. **Profiling:** Use Three.js `Stats` addon in debug mode to monitor FPS, draw calls, and triangles.
-  6. **Edge Case Testing:**
-     - Rapid lane switching (no input debounce issues).
-     - Jump while sliding, slide while jumping.
-     - Power-up expiration mid-animation.
-     - Fast scroll on mobile (prevent overscroll / page bounce).
-  7. **Responsive Layout Testing:** Test on multiple screen sizes (phone portrait/landscape, tablet, desktop).
-* **Success Criteria:** Stable 60 FPS on mid-range devices; no memory leaks over 10-minute runs; no input glitches.
-
----
-
-## Key Resources to Reference
-1. **Cave Runner Tutorial (Hashnode):** [Link](https://kingdavvid.hashnode.dev/building-an-endless-runner-game-with-threejs-mixamo-vite-and-planetscale-part-one) — Three.js/Vite setup and Mixamo integration.
-2. **Web Runner Game (GitHub):** `gnurtuv/web-runner-game` — Lane logic, obstacle patterns, power-up implementations.
-3. **Mixamo:** Free rigged characters and animations (.glb export).
-4. **Three.js Docs:** [threejs.org](https://threejs.org/docs) — AnimationMixer, Box3, ObjectPool patterns.
-
-## Tech Stack
-| Layer | Choice | Rationale |
-|-------|--------|-----------|
-| Build | Vite + TypeScript | Fast HMR, type safety for Three.js |
-| Rendering | Three.js r160+ | Industry standard for WebGL |
-| Input | Custom keyboard + swipe recognizer | No heavy framework needed |
-| State | Custom ECS-lite (entities + systems) | Lightweight, transparent |
-| Audio | Web Audio API / Three.js Sound | Built-in, no extra deps |
-| Persistence | `localStorage` | Simple, no server needed |
-| Hosting | GitHub Pages or Netlify | Free, easy CI/CD |
-
-## Assumptions & Decisions
-- **World moves toward player** (player stays at fixed Z) — simplifies collision math and avoids floating-point drift.
-- **No physics engine** — custom AABB collision + gravity is sufficient for this game's simplicity and keeps bundle small.
-- **Mobile-first** — touch controls are primary; keyboard is secondary. UI scales to viewport.
-- **All assets bundled** — no external asset CDN; everything ships with the app for offline play.
-- **Single-player only** — no multiplayer or leaderboards (can be added later).
-
-## Success Criteria Summary
-1. Playable endless runner with 3-lane movement, jump, slide mechanics.
-2. Procedural infinite track with varied obstacles and coins.
-3. Score system with distance + coins, high score persistence.
-4. Five power-ups with timed effects and visual feedback.
-5. Full UI flow: Main Menu → Character Select → Gameplay → Game Over → Menu.
-6. 60 FPS on mid-range devices; responsive on mobile and desktop.
-7. Audio (music + SFX) with volume controls.
+1. Claude (subscription) expands milestone N into `microplan/NN-<slug>.md` via `/microplan plan.md phase N` — grounded in the files actually on disk, not in this document's predictions.
+2. dsh + local Qwen executes that file top to bottom.
+3. `npm run gate` decides pass/fail.
+4. Only then is milestone N+1 expanded. Microplans are never batch-generated far ahead: the skill grounds each one in real files, and files from unfinished milestones do not exist yet.

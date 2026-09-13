@@ -1,12 +1,12 @@
-import { defineConfig } from 'vite'
-
-// Hardcoded absolute path to src directory (handles spaces in path)
-const SRC_PATH = '/home/shubhankar/Desktop/games-test/subway surfers/src'
+import { fileURLToPath } from 'node:url';
+import { defineConfig } from 'vite';
 
 export default defineConfig({
   resolve: {
     alias: {
-      '@': SRC_PATH,
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-})
+  server: { port: 5173, strictPort: true },
+  preview: { port: 4173, strictPort: true },
+});

@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import type { DebugHook, DebugObstacle } from '@/contracts/debug';
+import type { DebugEvent, DebugHook, DebugObstacle } from '@/contracts/debug';
 
 const notYet = (name: string) => () => {
   throw new Error(`__GAME__.${name}() is not implemented until M2`);
@@ -34,6 +34,17 @@ export const debugHook: DebugHook = {
   step: notYet('step'),
   enqueue: notYet('enqueue'),
 };
+
+const EVENTS_CAPACITY = 256;
+
+export function pushDebugEvent(
+  tick: number,
+  type: DebugEvent['type'],
+  data: Record<string, number | string>,
+): void {
+  debugHook.events.push({ tick, type, data });
+  if (debugHook.events.length > EVENTS_CAPACITY) debugHook.events.shift();
+}
 
 export function installDebugHook(): void {
   if (import.meta.env.MODE !== 'production') {

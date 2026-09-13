@@ -45,10 +45,10 @@ test.describe('player kinematics', () => {
     expect(Math.abs(c.vy - -2.0)).toBeLessThan(1e-6);
     expect(await page.evaluate(() => window.__GAME__.player.elevation)).toBe('AIRBORNE');
 
-    const d = await atTick(38); // cumulative tick 98 -- ground return
-    expect(d.feetY).toBe(0);
+    const d = await atTick(38); // cumulative tick 98 -- landed on the fixture platform (M4 track)
+    expect(d.feetY).toBe(1); // snapped to PLATFORM_HEIGHT (1.0)
     expect(d.vy).toBe(0);
-    expect(await page.evaluate(() => window.__GAME__.player.elevation)).toBe('GROUND');
+    expect(await page.evaluate(() => window.__GAME__.player.elevation)).toBe('ON_PLATFORM');
   });
 
   test('slide scales the capsule for exactly SLIDE_DURATION', async ({ page }) => {

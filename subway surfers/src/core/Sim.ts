@@ -1,6 +1,7 @@
-import { FIXED_TIMESTEP } from '@/core/GameConfig';
+import { BASE_SPEED, FIXED_TIMESTEP } from '@/core/GameConfig';
 import { debugHook } from '@/core/DebugHook';
 import { PlayerController } from '@/core/PlayerController';
+import { M4_SURFACES } from '@/fixtures/m4Track';
 import type { SceneRoot } from '@/core/SceneRoot';
 import type { InputQueue } from '@/input/InputQueue';
 import { mulberry32, type Rng } from '@/util/rng';
@@ -27,8 +28,11 @@ export class Sim {
     const actions = this.input.drain();
     for (const action of actions) this.player.applyAction(action);
 
-    this.player.tick(FIXED_TIMESTEP);
     this.tickCount++;
+    debugHook.world.speed = BASE_SPEED;
+    debugHook.world.distance += BASE_SPEED * FIXED_TIMESTEP;
+
+    this.player.tick(FIXED_TIMESTEP, this.tickCount, debugHook.world.distance, M4_SURFACES);
     this.scene.update(this.player.x, this.player.feetY, this.player.scaleY);
 
     debugHook.stats.simTick = this.tickCount;

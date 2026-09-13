@@ -13,6 +13,8 @@ npm install
 npm run dev        # Vite dev server → http://localhost:5173
 ```
 
+The game loads on a menu screen over the live 3D scene; click **Play** to start a run. On the game-over screen, **Restart** reloads back to the menu.
+
 Controls: **A/D or ←/→** switch lanes, **W / ↑ / Space** jump, **S / ↓** slide (slide in the air fast-falls).
 
 ### Character model (required for M8+)
@@ -55,10 +57,11 @@ The initial commit (`1fc1d10`, 2026-09-07) was an earlier attempt that died on a
 | **M6b** Spawn fairness | [`8208df5`](https://github.com/So-bonkers/Games-test-qwen/commit/8208df5) | Lead distance scales with closing speed; 5 seeds × 3000 ticks with a scripted optimal bot ⇒ 0 deaths | 32 |
 | **M7** Coins & power-ups | [`bc926f4`](https://github.com/So-bonkers/Games-test-qwen/commit/bc926f4) | Magnet, sneakers, jetpack, hoverboard — each asserted via snapshot deltas; hoverboard converts one fatal hit into survival | 37 |
 | **M8** Mixamo character rig | [`2bca6d1`](https://github.com/So-bonkers/Games-test-qwen/commit/2bca6d1) | FBX + 7 clips loaded via `FBXLoader`, `animState` state machine (RUN/JUMP/SLIDE/LAND + crash mapping), capsule hidden on attach | 43 |
+| **M9** UI + HUD | [`7c38e27`](https://github.com/So-bonkers/Games-test-qwen/commit/7c38e27) | Menu screen, live HUD (score, coins, power-up timers), game-over + restart flow; rendering decoupled from pause so the scene stays live behind the menu. Audio deliberately deferred to M9b pending asset selection | 47 |
 
 ## What's next
 
-Per `plan.md`: **M9** UI + audio + HUD, **M10** environment art & lighting, **M11** post-FX. M9 is blocked on the open items in [`HUMAN-QUEUE.md`](HUMAN-QUEUE.md) (audio asset selection and the licensing/credits decision).
+Per `plan.md`: **M9b** audio (wires in `public/audio/*` once files land — Human Queue item 2), **M10** environment art & lighting, **M11** post-FX. No credits screen was added in M9: Mixamo is royalty-free with no attribution requirement and no CC-BY assets are in use yet (Human Queue item 3, decided skip-for-now).
 
 ## Project layout
 
@@ -68,6 +71,7 @@ src/core/        Sim, Loop, Renderer, SceneRoot, PlayerController, CharacterRig,
 src/fixtures/    static fixture track (M4) and M5 collision fixture sets
 src/spawner/     procedural spawner + object pools
 src/input/       input queue + keyboard mapping
+src/ui/          menu/HUD/game-over DOM layer (M9)
 src/util/        seeded RNG (the only place Math.random is legal)
 test/            Playwright specs (one per milestone, all permanent) + WebGL probes
 microplan/       per-milestone atomic task lists generated from plan.md
@@ -116,7 +120,7 @@ The v3 rewrite is driven by one post-mortem: the previous attempt (~2,600 LOC) b
    npm ci
    ```
 2. **Place the character assets** (human task; gitignored). Mixamo FBX files in `public/models/`: `character.fbx` plus `anim-run`, `anim-jump`, `anim-slide`, `anim-land`, `anim-crash-legs`, `anim-crash-trip`, `anim-crash-fall`. Without them the game still runs with the capsule placeholder; only the rig-load test in `test/character.spec.ts` fails.
-3. **Run the gate.** `npm run gate` — typecheck both TS projects, production build, then the full Playwright suite (43 tests) against `vite preview` on port 4173 (auto-started by the Playwright config). Expect green.
+3. **Run the gate.** `npm run gate` — typecheck both TS projects, production build, then the full Playwright suite (47 tests) against `vite preview` on port 4173 (auto-started by the Playwright config). Expect green.
 4. **Run one milestone's spec** with `npx playwright test test/<spec>.spec.ts` — e.g. `test/elevation.spec.ts`. Each spec is self-contained: it drives the game through `window.__GAME__` (`seed`, `setPaused`, `step`, `enqueue`) and asserts on plain-JSON snapshots.
 5. **Drive it by hand.** In dev mode, open the console and use the same hook: `__GAME__.seed(1); __GAME__.step(120)` advances exactly one second of simulation. Static fixture tracks are selectable via `?fixture=<name>`; `?fixture=procedural` enables the spawner.
 6. **Re-derive the environment on a new machine.** `test/gl-profile.json` was written for this machine (Mesa/ANGLE on an RX 7900 XTX). Elsewhere, run the M0 probes — `node test/probes/webgl-probe.mjs --headless` and `npm run probe:vite` — and write the working launch args into that file; the Playwright config reads it.
